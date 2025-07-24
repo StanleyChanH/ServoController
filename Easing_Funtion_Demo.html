@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>缓动函数(Easing Functions)动画与图表演示</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* 更柔和的背景色 */
+        }
+        .ball {
+            transition: transform 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .canvas-container {
+            aspect-ratio: 1 / 1; /* 保持画布为正方形 */
+            max-width: 500px;
+            max-height: 500px;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-6xl mx-auto bg-white rounded-2xl shadow-xl p-6 md:p-8">
+        
+        <!-- 标题 -->
+        <div class="text-center mb-6">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">缓动函数可视化</h1>
+            <p class="mt-2 text-gray-500">动画与函数曲线的同步演示</p>
+        </div>
+        
+        <!-- 控制区 -->
+        <div class="flex justify-center items-center space-x-4 mb-8 border-b pb-6">
+            <button id="startButton" class="px-8 py-3 bg-indigo-600 text-white font-bold rounded-lg shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-75 transition-all duration-200 transform hover:scale-105">
+                开始演示
+            </button>
+            <button id="resetButton" class="px-8 py-3 bg-gray-200 text-gray-800 font-bold rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-75 transition-all duration-200 transform hover:scale-105">
+                重置
+            </button>
+        </div>
+
+        <!-- 主内容区：动画 + 图表 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+            
+            <!-- 左侧：动画轨道 -->
+            <div id="animation-container" class="space-y-6 self-center">
+                <div class="animation-track" data-func="linear">
+                    <span class="font-mono text-sm md:text-base text-gray-700 w-1/3">linear</span>
+                    <div class="track-lane"><div id="ball-linear" class="ball w-7 h-7 rounded-full bg-sky-500 absolute top-1/2 -translate-y-1/2"></div></div>
+                </div>
+                <div class="animation-track" data-func="ease_in_out_quad">
+                    <span class="font-mono text-sm md:text-base text-gray-700 w-1/3">ease_in_out_quad</span>
+                    <div class="track-lane"><div id="ball-quad" class="ball w-7 h-7 rounded-full bg-emerald-500 absolute top-1/2 -translate-y-1/2"></div></div>
+                </div>
+                <div class="animation-track" data-func="ease_in_out_cubic">
+                    <span class="font-mono text-sm md:text-base text-gray-700 w-1/3">ease_in_out_cubic</span>
+                    <div class="track-lane"><div id="ball-cubic" class="ball w-7 h-7 rounded-full bg-amber-500 absolute top-1/2 -translate-y-1/2"></div></div>
+                </div>
+                <div class="animation-track" data-func="ease_out_bounce">
+                    <span class="font-mono text-sm md:text-base text-gray-700 w-1/3">ease_out_bounce</span>
+                    <div class="track-lane"><div id="ball-bounce" class="ball w-7 h-7 rounded-full bg-rose-500 absolute top-1/2 -translate-y-1/2"></div></div>
+                </div>
+            </div>
+
+            <!-- 右侧：图表 -->
+            <div id="chart-container" class="flex flex-col items-center justify-center">
+                <div class="canvas-container w-full relative">
+                    <canvas id="easingChart"></canvas>
+                </div>
+                 <div id="legend" class="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-4"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- 模型: 缓动函数定义 ---
+        const Easing = {
+            linear: t => t,
+            ease_in_out_quad: t => {
+                t *= 2;
+                if (t < 1) return 0.5 * t * t;
+                t -= 1;
+                return -0.5 * (t * (t - 2) - 1);
+            },
+            ease_in_out_cubic: t => {
+                t *= 2;
+                if (t < 1) return 0.5 * t * t * t;
+                t -= 2;
+                return 0.5 * (t * t * t + 2);
+            },
+            ease_out_bounce: t => {
+                const n1 = 7.5625;
+                const d1 = 2.75;
+                if (t < (1 / d1)) return n1 * t * t;
+                if (t < (2 / d1)) return n1 * (t -= (1.5 / d1)) * t + 0.75;
+                if (t < (2.5 / d1)) return n1 * (t -= (2.25 / d1)) * t + 0.9375;
+                return n1 * (t -= (2.625 / d1)) * t + 0.984375;
+            }
+        };
+
+        // --- 视图: DOM元素和配置 ---
+        const DURATION = 3000;
+        const startButton = document.getElementById('startButton');
+        const resetButton = document.getElementById('resetButton');
+        const canvas = document.getElementById('easingChart');
+        const ctx = canvas.getContext('2d');
+        const legendContainer = document.getElementById('legend');
+        
+        const functions = {
+            linear: { ball: document.getElementById('ball-linear'), color: '#0ea5e9' },
+            ease_in_out_quad: { ball: document.getElementById('ball-quad'), color: '#10b981' },
+            ease_in_out_cubic: { ball: document.getElementById('ball-cubic'), color: '#f59e0b' },
+            ease_out_bounce: { ball: document.getElementById('ball-bounce'), color: '#f43f5e' }
+        };
+
+        let animationFrameId = null;
+
+        // --- 视图辅助函数 ---
+        function setupDOM() {
+            document.querySelectorAll('.animation-track').forEach(el => el.classList.add('flex', 'items-center', 'space-x-4'));
+            document.querySelectorAll('.track-lane').forEach(el => el.classList.add('w-2/3', 'h-2', 'bg-gray-200', 'rounded-full', 'relative'));
+            Object.keys(functions).forEach(name => {
+                const { color } = functions[name];
+                legendContainer.innerHTML += `
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 rounded-full mr-2" style="background-color: ${color};"></div>
+                        <span class="font-mono text-sm">${name}</span>
+                    </div>`;
+            });
+        }
+        
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const size = Math.min(container.clientWidth, container.clientHeight);
+            canvas.width = size * window.devicePixelRatio;
+            canvas.height = size * window.devicePixelRatio;
+            canvas.style.width = `${size}px`;
+            canvas.style.height = `${size}px`;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            drawGrid();
+        }
+
+        function drawGrid() {
+            const size = canvas.clientWidth;
+            const padding = 30.5;
+            const chartSize = size - padding * 2;
+            
+            ctx.clearRect(0, 0, size, size);
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.fillStyle = '#94a3b8';
+            ctx.lineWidth = 1;
+            ctx.font = '10px Inter';
+
+            // 绘制网格线
+            for (let i = 0; i <= 10; i++) {
+                const pos = padding + (i / 10) * chartSize;
+                // 水平线
+                ctx.beginPath();
+                ctx.moveTo(padding, pos);
+                ctx.lineTo(padding + chartSize, pos);
+                ctx.stroke();
+                // 垂直线
+                ctx.beginPath();
+                ctx.moveTo(pos, padding);
+                ctx.lineTo(pos, padding + chartSize);
+                ctx.stroke();
+
+                // 绘制坐标轴标签
+                if (i % 2 === 0) {
+                   ctx.fillText((1 - i / 10).toFixed(1), padding - 20, pos + 3);
+                   ctx.fillText((i / 10).toFixed(1), pos - 5, size - padding + 15);
+                }
+            }
+            
+            // 绘制坐标轴
+            ctx.strokeStyle = '#94a3b8';
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, size - padding);
+            ctx.lineTo(size - padding, size - padding);
+            ctx.stroke();
+            
+            ctx.fillText('进度', padding - 30, padding - 8);
+            ctx.fillText('时间', size - padding - 15, size - padding + 20);
+        }
+
+        // --- 控制器: 动画逻辑 ---
+        function animate(timestamp, startTime) {
+            const elapsed = timestamp - startTime;
+            const progress = Math.min(elapsed / DURATION, 1);
+            
+            const lane = document.querySelector('.track-lane');
+            const travelDistance = lane.offsetWidth - functions.linear.ball.offsetWidth;
+            
+            const canvasSize = canvas.clientWidth;
+            const padding = 30.5;
+            const chartSize = canvasSize - padding * 2;
+            
+            drawGrid(); // 每帧重绘网格
+
+            // 遍历所有函数，更新小球和图表
+            for (const name in functions) {
+                const { ball, color } = functions[name];
+                const easingFunc = Easing[name];
+                
+                // 1. 更新小球位置
+                const easedProgress = easingFunc(progress);
+                const newPosition = easedProgress * travelDistance;
+                ball.style.transform = `translateX(${newPosition}px) translateY(-50%)`;
+
+                // 2. 在图表上绘制曲线和指示点
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(padding, canvasSize - padding);
+                
+                // 绘制已经过的曲线路径
+                for (let t = 0; t <= progress; t += 0.01) {
+                    const y = easingFunc(t);
+                    const xPos = padding + t * chartSize;
+                    const yPos = canvasSize - (padding + y * chartSize);
+                    ctx.lineTo(xPos, yPos);
+                }
+                ctx.stroke();
+
+                // 绘制当前的指示点
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                const dotX = padding + progress * chartSize;
+                const dotY = canvasSize - (padding + easedProgress * chartSize);
+                ctx.arc(dotX, dotY, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+            
+            if (progress < 1) {
+                animationFrameId = requestAnimationFrame(ts => animate(ts, startTime));
+            } else {
+                animationFrameId = null;
+                startButton.disabled = false;
+            }
+        }
+
+        function startAnimation() {
+            if (animationFrameId) return;
+            Object.values(functions).forEach(f => f.ball.style.transition = 'none');
+            const startTime = performance.now();
+            startButton.disabled = true;
+            animationFrameId = requestAnimationFrame(ts => animate(ts, startTime));
+        }
+
+        function resetAnimation() {
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+
+            Object.values(functions).forEach(f => {
+                f.ball.style.transition = 'transform 0.3s ease';
+                f.ball.style.transform = 'translateX(0px) translateY(-50%)';
+            });
+            
+            drawGrid(); // 清空并重绘网格
+            startButton.disabled = false;
+        }
+
+        // --- 初始化 ---
+        window.addEventListener('load', () => {
+            setupDOM();
+            resizeCanvas();
+            resetAnimation();
+        });
+        window.addEventListener('resize', () => {
+             resizeCanvas();
+             if(!animationFrameId) {
+                resetAnimation();
+             }
+        });
+        startButton.addEventListener('click', startAnimation);
+        resetButton.addEventListener('click', resetAnimation);
+    </script>
+</body>
+</html>
+
