@@ -33,7 +33,7 @@ controller = ServoController(board_address=0x2D)
 
 # 配置舵机
 servo1 = controller.setup_servo(1, max_angle=180)
-servo2 = controller.setup_servo(2, min_safe_percent=10, max_safe_percent=90)
+servo2 = controller.setup_servo(2, max_angle=270, min_safe_percent=10, max_safe_percent=90)
 
 # 执行初始化自检
 controller.run_initialization_sequence()
